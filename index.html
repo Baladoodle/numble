@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Numble</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Manrope:wght@200..800&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    // Set --z from physical monitor width (screen.width is OS-scaled
+    // CSS pixels, immune to browser zoom). Adds .scaled to <html>
+    // only when scaling > 1 is needed, so the 1080p layout stays
+    // a pure no-op. Re-runs on resize to catch monitor switches.
+    (function () {
+      var doc = document.documentElement;
+      function apply() {
+        var z = Math.min(2.5, Math.max(1, window.screen.width / 1920));
+        if (z > 1.001) {
+          doc.style.setProperty('--z', z);
+          doc.classList.add('scaled');
+        } else {
+          doc.style.removeProperty('--z');
+          doc.classList.remove('scaled');
+        }
+      }
+      apply();
+      window.addEventListener('resize', apply);
+    })();
+  </script>
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="page">
+
+    <!-- ─── masthead ────────────────────────────────────────────── -->
+    <header class="masthead" role="banner">
+      <div class="masthead__title">
+        <h1 class="wordmark">Numble<span class="wordmark__dot">.</span><span class="wordmark__byline">by <a class="wordmark__byline__link" href="https://github.com/Baladoodle" target="_blank" rel="noopener noreferrer"><em>Jovan Jovanović</em></a>.</span></h1>
+      </div>
+      <div class="masthead__meta">
+        <div class="meta-row">
+          <span class="meta-label">Score</span>
+          <span class="meta-value" id="meta-score">0</span>
+        </div>
+        <button class="meta-row meta-row--btn" id="difficulty-btn" type="button" title="Cycle difficulty (D)">
+          <span class="meta-label">Mode</span>
+          <span class="meta-value" id="difficulty-value">3-digit</span>
+        </button>
+        <button class="meta-row meta-row--btn" id="practice-btn" type="button" aria-pressed="false" title="Toggle practice (P)">
+          <span class="meta-label">Practice</span>
+          <span class="meta-value" id="practice-value">off</span>
+        </button>
+        <div class="meta-row meta-row--seed" id="seed-row">
+          <span class="meta-label">Seed</span>
+          <span class="meta-row__value-group">
+            <button class="meta-value meta-value--seed-btn" id="seed-display" type="button"
+                    title="Edit seed (E)">—</button>
+            <button class="meta-icon meta-icon--clear" id="seed-clear-top" type="button"
+                    title="Clear seed" aria-label="Clear seed" hidden>×</button>
+          </span>
+        </div>
+        <div class="meta-row meta-row--round" id="round-row">
+          <span class="meta-label">Round</span>
+          <span class="meta-row__value-group">
+            <span class="meta-value" id="meta-round">—</span>
+            <button class="meta-icon meta-icon--clear" id="round-clear-top" type="button"
+                    title="Reset round" aria-label="Reset round" hidden>×</button>
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <hr class="rule rule--heavy" />
+
+    <!-- ─── main grid ────────────────────────────────────────────── -->
+    <main class="grid">
+
+      <!-- left rail: vertical timer -->
+      <aside class="rail rail--left" aria-label="Time remaining">
+        <div class="vlabel">Time<br/>left</div>
+        <div class="vtime" id="vtime">0:50</div>
+        <div class="vfill" aria-hidden="true">
+          <div class="vfill__bar" id="vfill-bar"></div>
+        </div>
+      </aside>
+
+      <!-- centre column: target + input -->
+      <section class="centre">
+        <div class="kicker" id="kicker">
+          <span class="kicker__rule"></span>
+          <span class="kicker__text" id="kicker-text">Press <kbd>space</kbd> to begin</span>
+          <span class="kicker__rule"></span>
+        </div>
+        <div class="target" id="target" data-state="idle">
+          <div class="target__caption">The&nbsp;target</div>
+          <div class="target__num" id="target-num">
+            <span class="digit" data-pos="0">·</span><span class="digit" data-pos="1">·</span><span class="digit" data-pos="2">·</span><span class="digit" data-pos="3" data-hidden="1">·</span><span class="digit" data-pos="4" data-hidden="1">·</span>
+          </div>
+          <div class="target__rule"></div>
+          <div class="target__hint" id="target-hint">a three&ndash;digit figure, randomly drawn</div>
+        </div>
+
+        <div class="equation" id="equation">
+          <label class="equation__label" for="expr">Your&nbsp;expression</label>
+          <div class="equation__row">
+            <span class="equation__caret" id="expr-caret" aria-hidden="true">›</span>
+            <input
+              class="equation__input"
+              id="expr"
+              type="text"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              placeholder="( a + b ) × c …"
+              aria-label="Equation input"
+              disabled
+            />
+            <span class="equation__eq">=</span>
+            <span class="equation__live" id="expr-live">d</span>
+          </div>
+          <div class="equation__used" id="expr-used">using: <em>none yet</em></div>
+        </div>
+
+      </section>
+
+      <!-- right rail: six materials -->
+      <aside class="rail rail--right" aria-label="Available materials">
+        <div class="rail__title">Materials</div>
+        <ol class="materials" id="materials">
+          <li class="material" data-i="0"><span class="roman">I</span><span class="num">·</span><span class="tag"></span></li>
+          <li class="material" data-i="1"><span class="roman">II</span><span class="num">·</span><span class="tag"></span></li>
+          <li class="material" data-i="2"><span class="roman">III</span><span class="num">·</span><span class="tag"></span></li>
+          <li class="material" data-i="3"><span class="roman">IV</span><span class="num">·</span><span class="tag"></span></li>
+          <li class="material" data-i="4"><span class="roman">V</span><span class="num">·</span><span class="tag"></span></li>
+          <li class="material" data-i="5"><span class="roman">VI</span><span class="num">·</span><span class="tag"></span></li>
+          <li class="material" data-i="6" data-hidden="1"><span class="roman">VII</span><span class="num">·</span><span class="tag"></span></li>
+          <li class="material" data-i="7" data-hidden="1"><span class="roman">VIII</span><span class="num">·</span><span class="tag"></span></li>
+        </ol>
+        <div class="rail__foot">
+          <em>use any subset,</em><br/>
+          <em>once each at most</em>
+        </div>
+      </aside>
+
+    </main>
+
+    <hr class="rule rule--hair" />
+
+    <!-- ─── keyboard legend ──────────────────────────────────────── -->
+    <footer class="legend" role="contentinfo">
+      <div class="legend__group">
+        <span class="legend__label">Lock</span>
+        <kbd>space</kbd>
+      </div>
+      <div class="legend__group">
+        <span class="legend__label">Submit</span>
+        <kbd>enter</kbd>
+      </div>
+      <div class="legend__group">
+        <span class="legend__label">Clear</span>
+        <kbd>esc</kbd>
+      </div>
+      <div class="legend__group">
+        <span class="legend__label">Restart</span>
+        <kbd>R</kbd>
+      </div>
+      <div class="legend__group" title="Press R three times within 1.5s gaps to wipe the seed, round counter, and session score">
+        <span class="legend__label">Reset</span>
+        <span class="tapdots tapdots--3" id="legend-tapdots" aria-hidden="true">
+          <span class="tapdots__dot" data-on="0"></span>
+          <span class="tapdots__dot" data-on="0"></span>
+          <span class="tapdots__dot" data-on="0"></span>
+        </span>
+        <span class="tapdots__caption"><kbd>R</kbd> × 3</span>
+      </div>
+      <div class="legend__group">
+        <span class="legend__label">Help</span>
+        <kbd>?</kbd>
+      </div>
+      <div class="legend__group">
+        <span class="legend__label">Mode</span>
+        <kbd>D</kbd>
+      </div>
+      <div class="legend__group">
+        <span class="legend__label">Practice</span>
+        <kbd>P</kbd>
+      </div>
+      <div class="legend__group">
+        <span class="legend__label">Stats</span>
+        <kbd>S</kbd>
+      </div>
+      <div class="legend__group">
+        <span class="legend__label">Seed</span>
+        <kbd>E</kbd>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ─── overlay: end of round ──────────────────────────────────── -->
+  <div class="overlay" id="overlay" aria-hidden="true">
+    <div class="overlay__paper">
+      <div class="overlay__stamp" id="o-stamp">stop press</div>
+      <h2 class="overlay__title" id="o-title">Result</h2>
+      <div class="overlay__grid">
+        <div class="overlay__row">
+          <span class="overlay__label">Your expression</span>
+          <span class="overlay__val overlay__val--expr" id="o-expr">—</span>
+        </div>
+        <div class="overlay__row">
+          <span class="overlay__label">One solution</span>
+          <span class="overlay__val overlay__val--expr" id="o-solution">—</span>
+        </div>
+        <div class="overlay__row">
+          <span class="overlay__label">Evaluated</span>
+          <span class="overlay__val" id="o-eval">—</span>
+        </div>
+        <div class="overlay__row">
+          <span class="overlay__label">Target</span>
+          <span class="overlay__val" id="o-target">—</span>
+        </div>
+        <div class="overlay__row overlay__row--big">
+          <span class="overlay__label">Δ from target</span>
+          <span class="overlay__val" id="o-delta">—</span>
+        </div>
+        <div class="overlay__row overlay__row--big">
+          <span class="overlay__label">Points this round</span>
+          <span class="overlay__val overlay__val--score" id="o-score">—</span>
+        </div>
+      </div>
+      <div class="overlay__foot">
+        <button class="overlay__btn" id="overlay-dismiss" type="button">dismiss</button>
+        <button class="overlay__btn overlay__btn--primary" id="overlay-replay" type="button">play again</button>
+        <span class="overlay__foot-hint">
+          <kbd>space</kbd> close &nbsp;·&nbsp; <kbd>R</kbd> play again
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── overlay: rules / help ──────────────────────────────────── -->
+  <div class="overlay overlay--help" id="help" aria-hidden="true">
+    <div class="overlay__paper">
+      <div class="overlay__stamp overlay__stamp--alt">house rules</div>
+      <h2 class="overlay__title">How&nbsp;it&nbsp;works</h2>
+      <ol class="rules">
+        <li>Pick a <em>mode</em>: <em>3</em>, <em>4</em>, or <em>5</em>&ndash;digit. The materials, target range, and timer scale with the mode. Cycle with <kbd>D</kbd>.</li>
+        <li>Materials are drawn in order, each tumbling quickly. Press <kbd>space</kbd> to lock.</li>
+        <li>Once the last material locks, a <em>target</em> is computed and rolled &mdash; always one your materials can solve.</li>
+        <li>Compose an expression from the materials and basic arithmetic. Allowed operators: <code>+ − × ÷ ( )</code> &mdash; every intermediate result must be an <em>integer</em>, no fractions.</li>
+        <li>Use <em>any subset</em> of the materials, <em>each at most once</em>.</li>
+        <li>Hit <kbd>enter</kbd> to submit, or let the clock run out.</li>
+        <li><em>Practice</em>: the running sum is shown while you type &mdash; for learning the feel. Practice games don't count toward your stats. Toggle with <kbd>P</kbd>.</li>
+      </ol>
+      <h3 class="rules__heading">Scoring</h3>
+      <table class="scoring-chart">
+        <thead>
+          <tr><th>Outcome</th><th>Base</th><th>Time</th><th>Range</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Exact match</td><td>6</td><td>up to +4</td><td>6&ndash;10</td></tr>
+          <tr><td>One off</td><td>3</td><td>—</td><td>3</td></tr>
+          <tr><td>Further</td><td>—</td><td>—</td><td>0</td></tr>
+        </tbody>
+      </table>
+      <p class="scoring-note">The points earned scale with difficulty.</p>
+      <p class="scoring-note overlay__attribution">Inspired by <em>Slagalica</em>, the long-running Serbian TV quiz show.</p>
+      <div class="overlay__foot">
+        <kbd>esc</kbd> &nbsp;close &nbsp;·&nbsp; <kbd>space</kbd> &nbsp;back to the game
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── overlay: stats ──────────────────────────────────────── -->
+  <div class="overlay overlay--stats" id="stats" aria-hidden="true">
+    <div class="overlay__paper">
+      <div class="overlay__stamp overlay__stamp--alt">by the numbers</div>
+      <h2 class="overlay__title">Stats</h2>
+      <p class="scoring-note stats__intro">Only non-practice, non-seeded rounds are recorded.</p>
+      <div class="stats__sections" id="stats-sections">
+        <!-- The 3-digit section is the template; script.js clones it
+             for 4-digit and 5-digit on boot. -->
+        <section class="stats__section" data-difficulty="3">
+          <h3 class="stats__heading">3&ndash;digit</h3>
+          <div class="stats__grid">
+            <div class="stats__cell"><span class="stats__label">Played</span><span class="stats__value" data-key="played">—</span></div>
+            <div class="stats__cell"><span class="stats__label">Total</span><span class="stats__value" data-key="total">—</span></div>
+            <div class="stats__cell"><span class="stats__label">Exact</span><span class="stats__value" data-key="exactRate">—</span></div>
+            <div class="stats__cell"><span class="stats__label">Mean</span><span class="stats__value" data-key="mean">—</span></div>
+            <div class="stats__cell"><span class="stats__label">Streak</span><span class="stats__value" data-key="currentStreak">—</span></div>
+            <div class="stats__cell"><span class="stats__label">Best streak</span><span class="stats__value" data-key="longestStreak">—</span></div>
+          </div>
+          <div class="stats__hist">
+            <span class="stats__hist-label">Distribution</span>
+            <div class="stats__hist-bars" data-key="scoreByTier"></div>
+          </div>
+        </section>
+      </div>
+      <h3 class="rules__heading">Last 20 rounds</h3>
+      <div class="stats__history-wrap">
+        <table class="scoring-chart stats__history">
+          <thead>
+            <tr><th>Target</th><th>Score</th><th>Time</th><th>Mode</th><th>When</th></tr>
+          </thead>
+          <tbody id="stats-history-body" class="stats__history-body">
+            <tr class="stats__empty"><td colspan="5">no rounds yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="overlay__foot overlay__foot--split">
+        <span class="overlay__foot-l">
+          <kbd>esc</kbd> &nbsp;close
+        </span>
+        <span class="overlay__foot-r">
+          <button class="stats__reset-btn" id="stats-reset-btn" type="button">Reset progress</button>
+          <span class="stats__reset-hint" id="stats-reset-hint">
+            <kbd>R</kbd>
+            <span class="tapdots tapdots--5" id="stats-tapdots" aria-hidden="true">
+              <span class="tapdots__dot" data-on="0"></span>
+              <span class="tapdots__dot" data-on="0"></span>
+              <span class="tapdots__dot" data-on="0"></span>
+              <span class="tapdots__dot" data-on="0"></span>
+              <span class="tapdots__dot" data-on="0"></span>
+            </span>
+            <span class="tapdots__caption">× 5 or hold 1s</span>
+          </span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── overlay: seed editor ─────────────────────────────────── -->
+  <div class="overlay overlay--seed" id="seed-card" aria-hidden="true">
+    <div class="overlay__paper">
+      <div class="overlay__stamp overlay__stamp--alt">share &amp; sync</div>
+      <h2 class="overlay__title">Seed</h2>
+      <p class="scoring-note stats__intro">A seed is a phrase that pins the game &mdash; same seed + same round = same materials and target. Two players sharing a seed race on identical boards. Seeded games don't count toward your stats.</p>
+      <div class="seed-card__row">
+        <label class="seed-card__label" for="seed-card-input">Your seed</label>
+        <input class="seed-card__input" id="seed-card-input" type="text"
+               placeholder="e.g. amber-fjord-4271" autocomplete="off" spellcheck="false" maxlength="48" />
+        <!-- maxlength mirrors LIMITS.seedInputMaxLen in script.js -->
+      </div>
+      <div class="seed-card__actions">
+        <button class="seed-card__btn" id="seed-card-random" type="button" title="Generate a random seed">↻ &nbsp;random</button>
+        <button class="seed-card__btn" id="seed-card-clear" type="button" title="Clear the seed">× &nbsp;clear</button>
+        <button class="seed-card__btn" id="seed-card-apply" type="button" title="Apply the seed (Enter)">↩ &nbsp;apply</button>
+        <button class="seed-card__btn" id="seed-card-share" type="button" title="Copy a share link">⤴ &nbsp;share</button>
+      </div>
+      <div class="overlay__foot">
+        <kbd>enter</kbd> &nbsp;apply &nbsp;·&nbsp; <kbd>esc</kbd> &nbsp;close
+      </div>
+  </div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
